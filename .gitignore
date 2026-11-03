@@ -1,0 +1,16 @@
+.vscode/
+node_modules/
+client/dist/
+server/dist/
+server/prisma/dev.db
+server/prisma/dev.db-journal
+.env
+.env.*
+!.env.example
+.DS_Store
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+npm-debug.log*

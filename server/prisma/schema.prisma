@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  fullName       String
+  username       String    @unique
+  email          String    @unique
+  passwordHash   String?
+  profilePicture String?
+  coverImage     String?
+  bio            String?
+  role           String    @default("USER")
+  status         String    @default("ACTIVE")
+  emailVerified  Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  hostedRooms       Room[]             @relation("HostedRooms")
+  followsGiven      Follow[]           @relation("FollowerRelation")
+  followsReceived   Follow[]           @relation("FollowingRelation")
+  notifications     Notification[]
+  discussions       Discussion[]
+  comments          Comment[]
+  highlights        Highlight[]
+  feedback          Feedback[]
+  reportsFiled      Report[]           @relation("Reporter")
+  reportsReceived   Report[]           @relation("ReportedUser")
+  speakerRequests   SpeakerRequest[]
+  roomParticipants  RoomParticipant[]
+  chatMessages      ChatMessage[]
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  icon        String?
+  createdAt   DateTime   @default(now())
+  rooms       Room[]
+  discussions Discussion[]
+}
+
+model Room {
+  id                  String          @id @default(cuid())
+  title               String
+  description         String?
+  coverImage          String?
+  categoryId          String?
+  hostId              String
+  roomType            String          @default("PUBLIC")
+  status              String          @default("DRAFT")
+  maximumParticipants Int?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  category          Category?          @relation(fields: [categoryId], references: [id])
+  host              User               @relation("HostedRooms", fields: [hostId], references: [id], onDelete: Cascade)
+  participants      RoomParticipant[]
+  speakerRequests   SpeakerRequest[]
+  sessions          RoomSession[]
+  highlights        Highlight[]
+  messages          ChatMessage[]
+}
+
+model RoomParticipant {
+  id        String    @id @default(cuid())
+  roomId    String
+  userId    String
+  role      String    @default("LISTENER")
+  joinedAt  DateTime  @default(now())
+  leftAt    DateTime?
+  isMuted   Boolean   @default(false)
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+}
+
+model SpeakerRequest {
+  id        String    @id @default(cuid())
+  roomId    String
+  userId    String
+  status    String    @default("PENDING")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Discussion {
+  id         String    @id @default(cuid())
+  userId     String
+  categoryId String?
+  title      String
+  content    String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  Category?  @relation(fields: [categoryId], references: [id])
+  comments  Comment[]
+  highlights Highlight[]
+}
+
+model Comment {
+  id              String    @id @default(cuid())
+  discussionId    String
+  userId          String
+  parentCommentId String?
+  content         String
+  createdAt       DateTime  @default(now())
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent     Comment?          @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies    Comment[]         @relation("CommentReplies")
+}
+
+model Highlight {
+  id          String  @id @default(cuid())
+  userId      String
+  roomId      String?
+  discussionId String?
+  title       String
+  content     String
+  audioUrl    String?
+  createdAt   DateTime @default(now())
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room      Room?       @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  discussion Discussion? @relation(fields: [discussionId], references: [id], onDelete: SetNull)
+}
+
+model Feedback {
+  id            String   @id @default(cuid())
+  userId        String
+  category      String
+  subject       String
+  description   String
+  rating        Int?
+  status        String   @default("SUBMITTED")
+  adminResponse String?
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("FollowerRelation", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("FollowingRelation", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+}
+
+model Notification {
+  id             String   @id @default(cuid())
+  userId         String
+  type           String
+  title          String
+  message        String
+  relatedEntityId String?
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Reaction {
+  id            String   @id @default(cuid())
+  userId        String
+  entityType    String
+  entityId      String
+  reactionType  String
+  createdAt     DateTime @default(now())
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  reporterId    String
+  reportedUserId String?
+  entityType    String
+  entityId      String
+  reason        String
+  description   String?
+  status        String   @default("OPEN")
+  createdAt     DateTime @default(now())
+
+  reporter  User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported  User? @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: SetNull)
+}
+
+model RoomSession {
+  id            String    @id @default(cuid())
+  roomId        String
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  totalListeners Int      @default(0)
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+}
